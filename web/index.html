@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Jogo da velha distribuído</title>
+  <style>
+    :root { color-scheme: light; }
+    body {
+      margin: 0 auto;
+      max-width: 46rem;
+      padding: 2rem 1.25rem 4rem;
+      font: 1.05rem/1.5 Georgia, "Iowan Old Style", serif;
+      color: #1c1917;
+      background: #faf7f2;
+    }
+    h1, h2 { font-family: "Segoe UI", sans-serif; line-height: 1.2; }
+    h1 { font-size: 1.8rem; margin-bottom: 0.25rem; }
+    h2 { font-size: 1.25rem; margin-top: 2rem; }
+    .curso { color: #57534e; margin-top: 0; }
+    code, pre { font-family: "SF Mono", ui-monospace, monospace; font-size: 0.86rem; }
+    pre {
+      background: #fff;
+      border: 1px solid #e7e5e4;
+      padding: 0.8rem 1rem;
+      overflow-x: auto;
+    }
+    table { border-collapse: collapse; width: 100%; background: #fff; }
+    th, td { border: 1px solid #e7e5e4; padding: 0.4rem 0.6rem; text-align: left; }
+    a { color: #9a3412; }
+  </style>
+</head>
+<body>
+  <p class="curso">Sistemas Distribuídos — Prof. Alexandre Sztajnberg</p>
+  <h1>Jogo da velha distribuído</h1>
+  <p>
+    Três programas Java. O servidor de match pareia dois jogadores por RMI.
+    A partida segue por socket TCP. Cada jogada também sai por multicast para
+    quantos displays estiverem ouvindo o mesmo grupo.
+  </p>
+
+  <h2>Arquitetura</h2>
+  <pre>Jogador A  --RMI getOponent--&gt;  Servidor de match  &lt;--RMI--  Jogador B
+    |                                                            |
+    +---------------------- TCP (uma jogada por linha) ----------+
+    |                                                            |
+    +-------- UDP multicast 225.1.1.NN:88NN -------&gt;  Display(s)</pre>
+  <p>
+    O servidor fica em uma das VMs (152.92.236.14, .16 ou .17), junto com o
+    RMIRegistry na porta <code>98NN</code>. <code>NN</code> é o número da conta,
+    de 00 a 99. Os displays usam o grupo <code>225.1.1.NN</code> e a porta <code>88NN</code>.
+  </p>
+
+  <h2>Como compilar</h2>
+  <p>Precisa de Java 17 ou mais novo. Na raiz do projeto:</p>
+  <pre>sh compilar.sh</pre>
+
+  <h2>Como executar</h2>
+  <p>Troque <code>7</code> pelo seu NN e os IPs pelos das VMs. O mesmo NN nos três módulos.</p>
+  <pre># VM do match
+java -cp bin velha.match.Principal --nn 7 --ip 152.92.236.14
+
+# qualquer VM, quantos quiser
+java -cp bin velha.display.Principal --nn 7
+
+# dois jogadores, em máquinas diferentes
+java -cp bin velha.jogador.Principal --nn 7 --rmi-host 152.92.236.14 --ip 152.92.236.16
+java -cp bin velha.jogador.Principal --nn 7 --rmi-host 152.92.236.14 --ip 152.92.236.17</pre>
+  <p>
+    Para testar os dois jogadores na mesma máquina, omita <code>--ip</code>
+    (cai em 127.0.0.1) e use <code>--rmi-host 127.0.0.1</code>.
+    <code>--porta</code> fixa a porta TCP anunciada ao match, se a VM filtrar portas altas.
+  </p>
+  <p>Conferência automática, sem humano:</p>
+  <pre>java -cp bin velha.teste.TestePartida</pre>
+
+  <h2>Match</h2>
+  <p>Um método remoto, nome do enunciado:</p>
+  <pre>String getOponent(String jsonIn)</pre>
+  <p>Pedido e resposta:</p>
+  <pre>{"ip":"152.92.236.16","porta":50231,"protocolo":"tcp"}
+{"ip":"152.92.236.17","porta":49811,"inicia":true}</pre>
+  <p>
+    O JSON é uma <code>String</code>. Cada chamada RMI chega numa thread.
+    O primeiro jogador de um protocolo fica em <code>wait</code> dentro de
+    <code>getOponent</code>. O segundo acha esse pedido na fila, preenche a
+    resposta dos dois e faz <code>notifyAll</code>. Os dois <code>return</code>
+    saem juntos e a fila esvazia o par. TCP só pareia com TCP.
+  </p>
+  <p>
+    Quem recebe <code>inicia: true</code> é X, abre o TCP e joga primeiro.
+    Quem recebe <code>false</code> é O e dá <code>accept</code> no socket que
+    já estava escutando antes do RMI. Se ninguém aparecer em 120 segundos, a
+    chamada volta <code>{"erro":"timeout"}</code>.
+  </p>
+
+  <h2>Jogadas</h2>
+  <p>Uma mensagem JSON por linha, no TCP. O mesmo JSON vai no datagrama multicast.</p>
+  <pre>{"Numero":0,"Jogada":4,"Tabuleiro":[0,0,0,0,1,0,0,0,0],"Resultado":"jog"}</pre>
+  <table>
+    <tr><th>Campo</th><th>Significado</th></tr>
+    <tr><td>Numero</td><td>índice da jogada, começa em 0 e sobe uma unidade por lance válido</td></tr>
+    <tr><td>Jogada</td><td>casa 0 a 8, linha a linha</td></tr>
+    <tr><td>Tabuleiro</td><td>0 vazio, 1 = X (quem inicia), 2 = O</td></tr>
+    <tr><td>Resultado</td><td><code>jog</code>, <code>vit</code>, <code>der</code> ou <code>emp</code></td></tr>
+  </table>
+  <p>Casas:</p>
+  <pre>0 | 1 | 2
+3 | 4 | 5
+6 | 7 | 8</pre>
+  <p>
+    Número errado, casa ocupada, tabuleiro que não fecha com a jogada, ou
+    vitória/empate anunciado cedo: o módulo devolve a mesma linha, sem avançar
+    o número, e avisa quem está no teclado. O oponente joga outra casa com o
+    mesmo <code>Numero</code>.
+  </p>
+  <p>
+    Quem recebe a jogada confere vitória e empate no tabuleiro local. Se perdeu,
+    avisa o humano e manda uma última mensagem com <code>Resultado: "der"</code>.
+    No empate, devolve a mesma mensagem com <code>"emp"</code>. Aí os dois fecham o socket.
+    Sessenta segundos sem resposta também encerra a partida.
+  </p>
+
+  <h2>Display</h2>
+  <p>
+    Entra no grupo multicast e imprime o tabuleiro. Pode haver vários, no mesmo
+    grupo e na mesma porta. Cada jogador publica só a jogada que ele mesmo faz.
+    Se um datagrama antigo chegar depois, o display não volta o tabuleiro:
+    o lance de número maior já inclui aquela casa.
+  </p>
+
+  <h2>Pitch</h2>
+  <p>
+    Vídeo de cerca de 10 minutos: o jogo rodando nas VMs e um passeio pelo
+    <code>wait</code>/<code>notify</code> do match, pelo laço da partida e pelo multicast.
+  </p>
+  <p><a href="COLOQUE_AQUI_O_LINK_DO_VIDEO">Link do pitch</a></p>
+</body>
+</html>
