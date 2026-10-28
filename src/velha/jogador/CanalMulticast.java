@@ -10,19 +10,26 @@ import java.net.StandardSocketOptions;
 import java.nio.charset.StandardCharsets;
 import java.util.Enumeration;
 
+import velha.comum.Rede;
+
 public final class CanalMulticast implements Partida.Publicador {
     private final InetAddress grupo;
     private final int porta;
     private final MulticastSocket socket;
 
     public CanalMulticast(String endereco, int porta) throws IOException {
+        this(endereco, porta, Rede.TTL_PADRAO, null);
+    }
+
+    /** Um unico socket, criado aqui e reaproveitado em todos os envios. saida null = escolhe sozinho. */
+    public CanalMulticast(String endereco, int porta, int ttl, NetworkInterface saida) throws IOException {
         this.grupo = InetAddress.getByName(endereco);
         this.porta = porta;
         this.socket = new MulticastSocket();
-        this.socket.setOption(StandardSocketOptions.IP_MULTICAST_TTL, Integer.valueOf(1));
-        NetworkInterface saida = interfaceDeEnvio();
-        if (saida != null) {
-            this.socket.setOption(StandardSocketOptions.IP_MULTICAST_IF, saida);
+        this.socket.setOption(StandardSocketOptions.IP_MULTICAST_TTL, Integer.valueOf(ttl));
+        NetworkInterface escolhida = saida != null ? saida : interfaceDeEnvio();
+        if (escolhida != null) {
+            this.socket.setOption(StandardSocketOptions.IP_MULTICAST_IF, escolhida);
         }
     }
 

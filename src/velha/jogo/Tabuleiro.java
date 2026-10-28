@@ -80,16 +80,18 @@ public final class Tabuleiro {
     public static String desenho(int[] casas) {
         StringBuilder sb = new StringBuilder();
         for (int linha = 0; linha < 3; linha++) {
-            sb.append(' ');
             for (int coluna = 0; coluna < 3; coluna++) {
+                int casa = linha * 3 + coluna;
                 if (coluna > 0) {
-                    sb.append(" | ");
+                    sb.append('|');
                 }
-                sb.append(simbolo(casas[linha * 3 + coluna]));
+                sb.append(' ');
+                sb.append(simbolo(casas[casa]));
+                sb.append(' ');
             }
             sb.append('\n');
             if (linha < 2) {
-                sb.append("-----------\n");
+                sb.append("---+---+---\n");
             }
         }
         return sb.toString();

@@ -34,6 +34,29 @@ java -cp bin velha.jogador.Principal --nn 7 --rmi-host 152.92.236.14 --ip 152.92
 java -cp bin velha.jogador.Principal --nn 7 --rmi-host 152.92.236.14 --ip 152.92.236.17
 ```
 
+## Parâmetros
+
+Sem nenhum parâmetro de rede, valem as regras do `NN`. Cada valor pode ser trocado.
+
+| Parâmetro | Programa | Padrão | O que muda |
+| --- | --- | --- | --- |
+| `--nn` | todos | obrigatório | número da conta, de 0 a 99 |
+| `--ip` | match, jogador | descoberto | IP que os outros alcançam |
+| `--rmi-host` | jogador | `127.0.0.1` | máquina do servidor de match |
+| `--porta-rmi` | match, jogador | `98NN` | porta do RMI |
+| `--porta` | jogador | sorteada | porta TCP anunciada ao match |
+| `--grupo` | jogador, display | `225.1.1.NN` | grupo multicast |
+| `--porta-multicast` | jogador, display | `88NN` | porta multicast |
+| `--ttl` | jogador | `1` | TTL do multicast (1 fica na rede local) |
+| `--interface` | jogador, display | automática | interface de rede, como `en0` ou `eth0` |
+| `--espera` | match | `120` | segundos esperando um par |
+| `--timeout-conexao` | jogador | `30` | segundos que o O espera o X conectar. `0` = sem limite |
+| `--timeout-jogada` | jogador | `60` | segundos esperando a jogada do oponente. `0` = sem limite |
+
+O jogador abre um único socket multicast e o reaproveita em todas as jogadas.
+
+Multicast não é roteado como o tráfego comum. Com TTL 1 os pacotes ficam na rede local. Para sair dela é preciso roteamento multicast configurado pela administração da rede.
+
 Na mesma máquina, use `--rmi-host 127.0.0.1` e `--ip 127.0.0.1`. `--porta` fixa a porta TCP que o jogador anuncia ao match.
 
 Quem recebe `inicia: true` é o X, conecta e joga primeiro. O outro é o O e espera. As casas são digitadas de 0 a 8:

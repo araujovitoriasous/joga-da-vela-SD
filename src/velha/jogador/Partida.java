@@ -149,15 +149,18 @@ public final class Partida {
 
             tabuleiro.marcar(recebida.jogada, outro);
             esperado++;
-            saida.print(tabuleiro.desenho());
 
+            // Se a partida continua, o tabuleiro sai no inicio da minha vez.
+            // So desenho aqui quando ela acaba, para nao repetir.
             if (tabuleiro.venceu(outro) || Mensagem.VIT.equals(recebida.resultado)) {
+                saida.print(tabuleiro.desenho());
                 saida.println("Voce perdeu.");
                 Mensagem aceite = new Mensagem(recebida.numero, recebida.jogada, tabuleiro.copiar(), Mensagem.DER);
                 enviar(saidaSocket, aceite.toJson());
                 return "derrota";
             }
             if (tabuleiro.cheio() || Mensagem.EMP.equals(recebida.resultado)) {
+                saida.print(tabuleiro.desenho());
                 saida.println("Empate.");
                 Mensagem aceite = new Mensagem(recebida.numero, recebida.jogada, tabuleiro.copiar(), Mensagem.EMP);
                 enviar(saidaSocket, aceite.toJson());

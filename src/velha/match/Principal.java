@@ -9,6 +9,7 @@ import java.util.Enumeration;
 import java.util.Map;
 
 import velha.comum.Args;
+import velha.comum.Rede;
 
 public final class Principal {
     public static final String NOME = "ServidorMatch";
@@ -24,7 +25,7 @@ public final class Principal {
             return;
         }
         int nn = nn(parametros);
-        int porta = 9800 + nn;
+        int porta = Rede.portaRmi(parametros, nn);
         String ip = parametros.containsKey("ip") ? parametros.get("ip") : descobrirIp();
         long espera = ESPERA_PADRAO_MS;
         if (parametros.containsKey("espera")) {
@@ -75,7 +76,7 @@ public final class Principal {
     }
 
     private static void uso() {
-        System.out.println("Uso: java velha.match.Principal --nn NN [--ip IP] [--espera SEGUNDOS]");
-        System.out.println("Sobe o RMIRegistry na porta 98NN e publica ServidorMatch.");
+        System.out.println("Uso: java velha.match.Principal --nn NN [--ip IP] [--porta-rmi PORTA] [--espera SEGUNDOS]");
+        System.out.println("Sobe o RMIRegistry na porta 98NN (ou --porta-rmi) e publica ServidorMatch.");
     }
 }

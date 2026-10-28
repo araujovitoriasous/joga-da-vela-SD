@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
+import java.net.NetworkInterface;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
@@ -12,6 +13,7 @@ import java.util.Map;
 
 import velha.comum.Args;
 import velha.comum.Json;
+import velha.comum.Rede;
 import velha.match.ServidorMatch;
 
 public final class Principal {
@@ -32,9 +34,14 @@ public final class Principal {
         }
         String rmiHost = parametros.getOrDefault("rmi-host", "127.0.0.1");
         String ip = parametros.containsKey("ip") ? parametros.get("ip") : velha.match.Principal.descobrirIp();
-        int portaRmi = 9800 + nn;
-        String grupo = "225.1.1." + nn;
-        int portaMulticast = 8800 + nn;
+        int portaRmi = Rede.portaRmi(parametros, nn);
+        String grupo = Rede.grupo(parametros, nn);
+        int portaMulticast = Rede.portaMulticast(parametros, nn);
+        int ttl = Rede.ttl(parametros);
+        NetworkInterface interfaceSaida = Rede.interfaceEscolhida(parametros);
+        // Em segundos. 0 = sem limite.
+        int timeoutConexao = Args.inteiro(parametros, "timeout-conexao", 30);
+        int timeoutJogada = Args.inteiro(parametros, "timeout-jogada", Partida.TIMEOUT_JOGADA_MS / 1000);
 
         // O socket ja escuta antes do RMI, para o oponente conseguir conectar
         // mesmo que a gente ainda esteja saindo do getOponent.
@@ -70,10 +77,11 @@ public final class Principal {
             System.out.println("Oponente " + ipOponente + ":" + portaOponente
                     + (inicia ? " | voce conecta e comeca" : " | voce aceita e espera"));
 
-            jogo = inicia ? conectar(ipOponente, portaOponente, escuta) : aceitar(escuta);
-            canal = new CanalMulticast(grupo, portaMulticast);
+            jogo = inicia ? conectar(ipOponente, portaOponente, escuta) : aceitar(escuta, timeoutConexao);
+            canal = new CanalMulticast(grupo, portaMulticast, ttl, interfaceSaida);
             BufferedReader console = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));
-            String fim = Partida.jogar(jogo, inicia, Partida.escolhaHumana(console, System.out), canal);
+            String fim = Partida.jogar(jogo, inicia, Partida.escolhaHumana(console, System.out), canal,
+                    System.out, timeoutJogada * 1000);
             System.out.println("Partida encerrada: " + fim);
         } finally {
             if (jogo != null) {
@@ -102,13 +110,15 @@ public final class Principal {
         throw ultima;
     }
 
-    private static Socket aceitar(ServerSocket escuta) throws IOException {
-        escuta.setSoTimeout(30_000);
+    private static Socket aceitar(ServerSocket escuta, int timeoutSegundos) throws IOException {
+        escuta.setSoTimeout(timeoutSegundos * 1000);
         return escuta.accept();
     }
 
     private static void uso() {
         System.out.println("Uso: java velha.jogador.Principal --nn NN [--rmi-host HOST] [--ip IP] [--porta PORTA]");
-        System.out.println("Consulta o match na porta 98NN e publica jogadas em 225.1.1.NN:88NN.");
+        System.out.println("       [--porta-rmi PORTA] [--grupo IP] [--porta-multicast PORTA] [--ttl N] [--interface NOME]");
+        System.out.println("       [--timeout-conexao SEG] [--timeout-jogada SEG]   (0 = sem limite)");
+        System.out.println("Sem parametros, consulta o match na porta 98NN e publica jogadas em 225.1.1.NN:88NN.");
     }
 }

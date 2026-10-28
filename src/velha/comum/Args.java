@@ -30,4 +30,21 @@ public final class Args {
         }
         return valor;
     }
+
+    public static String texto(Map<String, String> args, String chave, String padrao) {
+        String valor = args.get(chave);
+        return valor == null || valor.isEmpty() ? padrao : valor;
+    }
+
+    public static int inteiro(Map<String, String> args, String chave, int padrao) {
+        String valor = args.get(chave);
+        if (valor == null || valor.isEmpty()) {
+            return padrao;
+        }
+        try {
+            return Integer.parseInt(valor.trim());
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("--" + chave + " tem que ser um numero inteiro: " + valor);
+        }
+    }
 }

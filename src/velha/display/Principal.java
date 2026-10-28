@@ -10,6 +10,7 @@ import java.util.Enumeration;
 import java.util.Map;
 
 import velha.comum.Args;
+import velha.comum.Rede;
 import velha.jogo.Mensagem;
 import velha.jogo.Tabuleiro;
 
@@ -24,14 +25,15 @@ public final class Principal {
             return;
         }
         int nn = velha.match.Principal.nn(parametros);
-        String endereco = "225.1.1." + nn;
-        int porta = 8800 + nn;
+        String endereco = Rede.grupo(parametros, nn);
+        int porta = Rede.portaMulticast(parametros, nn);
+        NetworkInterface escolhida = Rede.interfaceEscolhida(parametros);
         InetAddress grupo = InetAddress.getByName(endereco);
 
         MulticastSocket socket = new MulticastSocket(null);
         socket.setReuseAddress(true);
         socket.bind(new InetSocketAddress(porta));
-        int interfaces = entrarNoGrupo(socket, grupo, porta);
+        int interfaces = entrarNoGrupo(socket, grupo, porta, escolhida);
         System.out.println("Display em " + endereco + ":" + porta
                 + " (" + interfaces + " interfaces). Ctrl+C encerra.");
 
@@ -48,11 +50,20 @@ public final class Principal {
     }
 
     public static int entrarNoGrupo(MulticastSocket socket, InetAddress grupo, int porta) throws Exception {
+        return entrarNoGrupo(socket, grupo, porta, null);
+    }
+
+    /** So entra pela interface pedida; com null, tenta todas as que estao de pe. */
+    public static int entrarNoGrupo(MulticastSocket socket, InetAddress grupo, int porta, NetworkInterface so)
+            throws Exception {
         int entrou = 0;
         Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
         while (interfaces.hasMoreElements()) {
             NetworkInterface iface = interfaces.nextElement();
             if (!iface.isUp() || !iface.supportsMulticast()) {
+                continue;
+            }
+            if (so != null && !so.getName().equals(iface.getName())) {
                 continue;
             }
             try {
@@ -100,7 +111,7 @@ public final class Principal {
     }
 
     private static void uso() {
-        System.out.println("Uso: java velha.display.Principal --nn NN");
-        System.out.println("Recebe jogadas em 225.1.1.NN na porta 88NN.");
+        System.out.println("Uso: java velha.display.Principal --nn NN [--grupo IP] [--porta-multicast PORTA] [--interface NOME]");
+        System.out.println("Sem parametros, recebe jogadas em 225.1.1.NN na porta 88NN.");
     }
 }
